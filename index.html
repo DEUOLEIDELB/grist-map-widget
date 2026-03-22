@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Carte - Prospection Écoles</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #FAF5F2;
+            color: #191919;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* FILTER BAR */
+        .filter-bar {
+            background: white;
+            padding: 16px 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid #e5e5e5;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .filter-group-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 8px;
+        }
+        
+        .filter-btn {
+            padding: 8px 14px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            background: white;
+            color: #191919;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .filter-btn:hover {
+            background: #f5f5f5;
+        }
+        
+        /* OPENS FILTERS */
+        .filter-opens {
+            border-color: #a78bfa;
+        }
+        .filter-opens.active {
+            background: #a78bfa;
+            color: white;
+            border-color: #a78bfa;
+        }
+        
+        /* STATUS FILTERS */
+        .filter-status {
+            border-color: #34d399;
+        }
+        .filter-status.active {
+            background: #34d399;
+            color: white;
+            border-color: #34d399;
+        }
+        
+        /* DEPARTMENT FILTERS */
+        .filter-dept {
+            border-color: #f97316;
+            min-width: 50px;
+            text-align: center;
+        }
+        .filter-dept.active {
+            background: #f97316;
+            color: white;
+            border-color: #f97316;
+        }
+        
+        /* MAP */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #FAF5F2;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* POPUP */
+        .school-popup {
+            width: 320px;
+            font-size: 13px;
+        }
+        
+        .school-popup h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #191919;
+        }
+        
+        .school-popup-section {
+            margin-bottom: 12px;
+        }
+        
+        .school-popup-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 4px;
+        }
+        
+        .school-popup-value {
+            font-size: 13px;
+            color: #191919;
+        }
+        
+        .school-popup a {
+            color: #5914D0;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .school-popup a:hover {
+            text-decoration: underline;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-haute {
+            background: #fecaca;
+            color: #7f1d1d;
+        }
+        
+        .badge-moyenne {
+            background: #fde047;
+            color: #713f12;
+        }
+        
+        .badge-basse {
+            background: #d1d5db;
+            color: #374151;
+        }
+        
+        .badge-status {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .badge-ouvert {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .popup-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .btn-primary, .btn-secondary {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: #5914D0;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #470aa0;
+        }
+        
+        .btn-secondary {
+            background: #e5e5e5;
+            color: #191919;
+        }
+        
+        .btn-secondary:hover {
+            background: #d4d4d4;
+        }
+        
+        /* PRIORITY CARD - bottom-left */
+        .priority-card {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 280px;
+            max-width: calc(100% - 40px);
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.12);
+            border: 1px solid #e5e5e5;
+            z-index: 400;
+        }
+        
+        .priority-card.hidden {
+            display: none;
+        }
+        
+        .priority-card h4 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #191919;
+        }
+        
+        .priority-card-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .priority-card-phone {
+            font-size: 13px;
+            font-weight: 500;
+            color: #5914D0;
+            margin-bottom: 8px;
+        }
+        
+        .priority-card-phone a {
+            color: #5914D0;
+            text-decoration: none;
+        }
+        
+        .priority-card-phone a:hover {
+            text-decoration: underline;
+        }
+        
+        .priority-card-badges {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .priority-card-badges .badge {
+            padding: 3px 8px;
+            font-size: 11px;
+        }
+        
+        .priority-card-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .priority-card-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .priority-card-actions .btn-close {
+            background: #f5f5f5;
+            color: #191919;
+        }
+        
+        .priority-card-actions .btn-close:hover {
+            background: #e5e5e5;
+        }
+        
+        .priority-card-actions .btn-call {
+            background: #5914D0;
+            color: white;
+        }
+        
+        .priority-card-actions .btn-call:hover {
+            background: #470aa0;
+        }
+        
+        /* ZOOM CONTROLS */
+        .leaflet-control-zoom {
+            border: 1px solid #e5e5e5 !important;
+            border-radius: 8px !important;
+            background: white !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+        }
+        
+        .leaflet-control-zoom-in,
+        .leaflet-control-zoom-out {
+            background: white !important;
+            color: #191919 !important;
+            font-weight: 600 !important;
+            border: none !important;
+        }
+        
+        .leaflet-control-zoom-in:hover,
+        .leaflet-control-zoom-out:hover {
+            background: #f5f5f5 !important;
+        }
+        
+        /* MARKERS */
+        .marker-circle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .marker-circle.selected {
+            width: 18px;
+            height: 18px;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px rgba(89, 20, 208, 0.5);
+        }
+        
+        /* MARKER CLUSTER */
+        .marker-cluster {
+            background: white !important;
+            border: 1px solid #e5e5e5 !important;
+            border-radius: 50% !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+        }
+        
+        .marker-cluster span {
+            color: #191919 !important;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="filter-bar">
+            <div class="filter-row">
+                <span class="filter-group-label">Ouvertures</span>
+                <button class="filter-btn filter-opens" data-filter-type="opens" data-filter-value="1">1× ouvert</button>
+                <button class="filter-btn filter-opens" data-filter-type="opens" data-filter-value="2">2× ouvert</button>
+                <button class="filter-btn filter-opens" data-filter-type="opens" data-filter-value="3+">3+ ouvert</button>
+                
+                <span class="filter-group-label" style="margin-left: 24px;">Statut</span>
+                <button class="filter-btn filter-status" data-filter-type="status" data-filter-value="appeler">À appeler</button>
+                <button class="filter-btn filter-status" data-filter-type="status" data-filter-value="contacte">Contacté</button>
+            </div>
+            
+            <div class="filter-row">
+                <span class="filter-group-label">Départements</span>
+                <button class="filter-btn filter-dept" data-filter-type="dept" data-filter-value="54" title="Meurthe-et-Moselle">54</button>
+                <button class="filter-btn filter-dept" data-filter-type="dept" data-filter-value="57" title="Moselle">57</button>
+                <button class="filter-btn filter-dept" data-filter-type="dept" data-filter-value="67" title="Bas-Rhin">67</button>
+                <button class="filter-btn filter-dept" data-filter-type="dept" data-filter-value="68" title="Haut-Rhin">68</button>
+                <button class="filter-btn filter-dept" data-filter-type="dept" data-filter-value="88" title="Vosges">88</button>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="priority-card hidden" id="priorityCard">
+                <h4 id="priorityName"></h4>
+                <div class="priority-card-meta">
+                    <div id="priorityCommune"></div>
+                </div>
+                <div class="priority-card-phone">
+                    <a id="priorityPhone" href="#">📞 Appeler</a>
+                </div>
+                <div class="priority-card-badges">
+                    <span class="badge" id="priorityBadge"></span>
+                    <span class="badge badge-ouvert" id="priorityOpens"></span>
+                </div>
+                <div class="priority-card-actions">
+                    <button class="btn-close" id="dismissPriority">✕ Ignorer</button>
+                    <button class="btn-call" id="callPriority">📞 Appeler</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    
+    <!-- Grist API -->
+    <script src="https://docs.getgrist.com/api/js/grist-api.js"></script>
+    
+    <script>
+        console.log('[CRM-Map] Initializing CRM Map widget...');
+        
+        // ============================================================================
+        // DEPARTMENT GEOJSON - EMBEDDED
+        // ============================================================================
+        const DEPT_GEOJSON = EOF
+cat /sessions/fervent-happy-gates/depts.json >> /sessions/fervent-happy-gates/mnt/outputs/index.html
+cat >> /sessions/fervent-happy-gates/mnt/outputs/index.html << 'EOF';
+
+        // ============================================================================
+        // DEPARTMENT COLORS
+        // ============================================================================
+        const DEPT_COLORS = {
+            54: { fill: '#818cf8', border: '#6366f1', name: 'Meurthe-et-Moselle' },
+            57: { fill: '#34d399', border: '#10b981', name: 'Moselle' },
+            67: { fill: '#f97316', border: '#ea580c', name: 'Bas-Rhin' },
+            68: { fill: '#f43f5e', border: '#e11d48', name: 'Haut-Rhin' },
+            88: { fill: '#a78bfa', border: '#9333ea', name: 'Vosges' }
+        };
+        
+        const MARKER_COLORS = {
+            54: '#6366f1',
+            57: '#10b981',
+            67: '#ea580c',
+            68: '#e11d48',
+            88: '#9333ea'
+        };
+        
+        // ============================================================================
+        // STATE & CONFIG
+        // ============================================================================
+        let map = null;
+        let markerGroup = null;
+        let schoolMarkers = {};
+        let allRecords = [];
+        let activeFilters = {
+            opens: null,
+            status: null,
+            dept: new Set()
+        };
+        let dismissedIds = new Set();
+        let selectedMarker = null;
+        
+        // ============================================================================
+        // FILTER LOGIC
+        // ============================================================================
+        function matchesFilters(record) {
+            // Check opens filter
+            if (activeFilters.opens !== null) {
+                const totalOpens = record.Total_Opens || 0;
+                if (activeFilters.opens === '1') {
+                    if (totalOpens !== 1) return false;
+                } else if (activeFilters.opens === '2') {
+                    if (totalOpens !== 2) return false;
+                } else if (activeFilters.opens === '3+') {
+                    if (totalOpens < 3) return false;
+                }
+            }
+            
+            // Check status filter
+            if (activeFilters.status !== null) {
+                const status = record.Statut_Appel || '';
+                if (activeFilters.status === 'appeler') {
+                    if (status !== 'A appeler') return false;
+                } else if (activeFilters.status === 'contacte') {
+                    if (['A appeler', 'Exclu', 'Bounce'].includes(status)) return false;
+                }
+            }
+            
+            // Check department filter
+            if (activeFilters.dept.size > 0) {
+                const dept = String(record.Departement);
+                if (!activeFilters.dept.has(dept)) return false;
+            }
+            
+            return true;
+        }
+        
+        function getNextPrioritySchool() {
+            const filteredRecords = allRecords.filter(r => 
+                matchesFilters(r) && 
+                !dismissedIds.has(r.id) &&
+                r.Statut_Appel !== 'Exclu' &&
+                r.Statut_Appel !== 'Bounce' &&
+                r.Statut_Appel !== 'Refus'
+            );
+            
+            if (filteredRecords.length === 0) return null;
+            
+            // Sort by priority (Haute > Moyenne > Basse)
+            const priorityOrder = { 'Haute': 0, 'Moyenne': 1, 'Basse': 2 };
+            filteredRecords.sort((a, b) => {
+                const priorityDiff = (priorityOrder[a.Priorite] || 99) - (priorityOrder[b.Priorite] || 99);
+                if (priorityDiff !== 0) return priorityDiff;
+                // Within same priority, higher opens first
+                return (b.Total_Opens || 0) - (a.Total_Opens || 0);
+            });
+            
+            return filteredRecords[0];
+        }
+        
+        function updatePriorityCard() {
+            const card = document.getElementById('priorityCard');
+            const school = getNextPrioritySchool();
+            
+            if (!school) {
+                card.classList.add('hidden');
+                return;
+            }
+            
+            card.classList.remove('hidden');
+            document.getElementById('priorityName').textContent = school.Nom_Ecole || 'École';
+            document.getElementById('priorityCommune').textContent = `${school.Commune || '—'} (${school.Code_Postal || '—'})`;
+            
+            const phone = school.Telephone || school.Tel_Direct || '';
+            const phoneEl = document.getElementById('priorityPhone');
+            if (phone) {
+                phoneEl.href = `tel:${phone}`;
+                phoneEl.textContent = `📞 ${phone}`;
+            } else {
+                phoneEl.href = '#';
+                phoneEl.textContent = '📞 N/A';
+            }
+            
+            const priorityClass = school.Priorite === 'Haute' ? 'badge-haute' : 
+                                  school.Priorite === 'Moyenne' ? 'badge-moyenne' : 'badge-basse';
+            document.getElementById('priorityBadge').className = `badge ${priorityClass}`;
+            document.getElementById('priorityBadge').textContent = `Priorité ${school.Priorite}`;
+            
+            const opens = school.Total_Opens || 0;
+            document.getElementById('priorityOpens').textContent = `${opens} ouverture${opens > 1 ? 's' : ''}`;
+            
+            // Store for action buttons
+            card.dataset.schoolId = school.id;
+            card.dataset.phone = phone;
+        }
+        
+        function handleFilterClick(btn) {
+            const filterType = btn.dataset.filterType;
+            const filterValue = btn.dataset.filterValue;
+            
+            if (filterType === 'opens' || filterType === 'status') {
+                // Mutually exclusive
+                document.querySelectorAll(`.filter-${filterType}`).forEach(b => {
+                    if (b !== btn) b.classList.remove('active');
+                });
+                if (btn.classList.contains('active')) {
+                    activeFilters[filterType] = null;
+                    btn.classList.remove('active');
+                } else {
+                    activeFilters[filterType] = filterValue;
+                    btn.classList.add('active');
+                }
+            } else if (filterType === 'dept') {
+                // Toggle
+                if (btn.classList.contains('active')) {
+                    activeFilters.dept.delete(filterValue);
+                    btn.classList.remove('active');
+                } else {
+                    activeFilters.dept.add(filterValue);
+                    btn.classList.add('active');
+                }
+            }
+            
+            console.log('[CRM-Map] Filters updated:', activeFilters);
+            updateMarkerVisibility();
+            updatePriorityCard();
+        }
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => handleFilterClick(btn));
+        });
+        
+        // ============================================================================
+        // MAP INITIALIZATION
+        // ============================================================================
+        function initMap() {
+            map = L.map('map').setView([48.5, 7.0], 8);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap France',
+                maxZoom: 20
+            }).addTo(map);
+            
+            markerGroup = L.markerClusterGroup({
+                maxClusterRadius: 60,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    return L.divIcon({
+                        html: `<div style="background: white; border: 1px solid #e5e5e5; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #191919; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.12);">${count}</div>`,
+                        iconSize: [40, 40],
+                        className: 'marker-cluster'
+                    });
+                }
+            });
+            map.addLayer(markerGroup);
+            
+            // Add department boundaries
+            L.geoJSON(DEPT_GEOJSON, {
+                style: function(feature) {
+                    const deptCode = String(feature.properties.code);
+                    const color = DEPT_COLORS[deptCode];
+                    return {
+                        color: color ? color.border : '#999',
+                        weight: 1,
+                        opacity: 0.3,
+                        fillColor: color ? color.fill : '#ccc',
+                        fillOpacity: 0.06
+                    };
+                }
+            }).addTo(map);
+            
+            console.log('[CRM-Map] Map initialized');
+        }
+        
+        // ============================================================================
+        // MARKER MANAGEMENT
+        // ============================================================================
+        function createSchoolMarker(school) {
+            if (!school.Latitude || !school.Longitude) {
+                console.warn('[CRM-Map] No coordinates for:', school.Nom_Ecole);
+                return null;
+            }
+            
+            const deptCode = String(school.Departement);
+            const color = MARKER_COLORS[deptCode] || '#999';
+            
+            const marker = L.circleMarker([school.Latitude, school.Longitude], {
+                radius: 6,
+                fillColor: color,
+                color: 'white',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            });
+            
+            marker.schoolData = school;
+            
+            marker.on('click', function() {
+                selectMarker(marker);
+                showSchoolPopup(marker);
+            });
+            
+            return marker;
+        }
+        
+        function selectMarker(marker) {
+            if (selectedMarker) {
+                selectedMarker.setRadius(6);
+            }
+            marker.setRadius(9);
+            selectedMarker = marker;
+        }
+        
+        function showSchoolPopup(marker) {
+            const school = marker.schoolData;
+            const phone = school.Telephone || school.Tel_Direct || 'N/A';
+            const email = school.Email || 'N/A';
+            const opens = school.Total_Opens || 0;
+            
+            let popupContent = `
+                <div class="school-popup">
+                    <h3>${school.Nom_Ecole}</h3>
+                    
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Localisation</div>
+                        <div class="school-popup-value">
+                            ${school.Commune}, ${school.Code_Postal}<br>
+                            ${school.Adresse || ''}<br>
+                            Dept. ${school.Departement}
+                        </div>
+                    </div>
+                    
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Contact</div>
+                        <div class="school-popup-value">
+                            Tél: ${phone === 'N/A' ? phone : `<a href="tel:${phone}">${phone}</a>`}<br>
+                            Email: ${email === 'N/A' ? email : `<a href="mailto:${email}">${email}</a>`}
+                        </div>
+                    </div>
+                    
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Ouvertures</div>
+                        <div class="school-popup-value">
+                            <span class="badge badge-ouvert">${opens} ouverture${opens > 1 ? 's' : ''}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Statut d'appel</div>
+                        <div class="school-popup-value">
+                            <span class="badge badge-status">${school.Statut_Appel || 'N/A'}</span>
+                        </div>
+                    </div>
+                    
+                    ${school.Notes ? `
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Notes</div>
+                        <div class="school-popup-value">${school.Notes}</div>
+                    </div>
+                    ` : ''}
+                    
+                    ${school.Entreprises_Associees ? `
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Entreprises proches</div>
+                        <div class="school-popup-value">${school.Entreprises_Associees.substring(0, 100)}${school.Entreprises_Associees.length > 100 ? '...' : ''}</div>
+                    </div>
+                    ` : ''}
+                    
+                    ${school.Interlocuteur ? `
+                    <div class="school-popup-section">
+                        <div class="school-popup-label">Interlocuteur</div>
+                        <div class="school-popup-value">
+                            ${school.Interlocuteur}
+                            ${school.Tel_Direct ? ` <a href="tel:${school.Tel_Direct}">(${school.Tel_Direct})</a>` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="popup-actions">
+                        <button class="btn-primary" onclick="alert('Dialer: ${phone}')">📞 Appeler</button>
+                        <button class="btn-secondary" onclick="window.location.href = 'mailto:${email}'">✉️ Email</button>
+                    </div>
+                </div>
+            `;
+            
+            marker.bindPopup(popupContent, { maxWidth: 350 }).openPopup();
+        }
+        
+        function updateMarkerVisibility() {
+            markerGroup.clearLayers();
+            
+            allRecords.forEach(school => {
+                if (matchesFilters(school)) {
+                    const marker = createSchoolMarker(school);
+                    if (marker) {
+                        markerGroup.addLayer(marker);
+                        schoolMarkers[school.id] = marker;
+                    }
+                }
+            });
+            
+            console.log('[CRM-Map] Updated marker visibility');
+        }
+        
+        // ============================================================================
+        // PRIORITY CARD ACTIONS
+        // ============================================================================
+        document.getElementById('dismissPriority').addEventListener('click', function() {
+            const card = document.getElementById('priorityCard');
+            const schoolId = card.dataset.schoolId;
+            dismissedIds.add(schoolId);
+            console.log('[CRM-Map] Dismissed school:', schoolId);
+            updatePriorityCard();
+        });
+        
+        document.getElementById('callPriority').addEventListener('click', function() {
+            const card = document.getElementById('priorityCard');
+            const phone = card.dataset.phone;
+            if (phone) {
+                window.location.href = `tel:${phone}`;
+            }
+        });
+        
+        // ============================================================================
+        // GRIST INTEGRATION
+        // ============================================================================
+        function setupGristIntegration() {
+            console.log('[CRM-Map] Setting up Grist integration...');
+            
+            const columnMapping = {
+                'Nom_Ecole': 'Nom_Ecole',
+                'UAI': 'UAI',
+                'Email': 'Email',
+                'Telephone': 'Telephone',
+                'Commune': 'Commune',
+                'Code_Postal': 'Code_Postal',
+                'Adresse': 'Adresse',
+                'Departement': 'Departement',
+                'Latitude': 'Latitude',
+                'Longitude': 'Longitude',
+                'Campaign': 'Campaign',
+                'A_Ouvert': 'A_Ouvert',
+                'Total_Opens': 'Total_Opens',
+                'Priorite': 'Priorite',
+                'Statut_Appel': 'Statut_Appel',
+                'Notes': 'Notes',
+                'Entreprises_Associees': 'Entreprises_Associees',
+                'Interlocuteur': 'Interlocuteur',
+                'Date_Rappel': 'Date_Rappel',
+                'Tel_Direct': 'Tel_Direct'
+            };
+            
+            grist.ready({
+                requiredAccess: 'read table',
+                allowSelectBy: true,
+                columns: [
+                    { name: 'Nom_Ecole', type: 'Any', title: 'Nom Ecole' },
+                    { name: 'UAI', type: 'Any', title: 'UAI', optional: true },
+                    { name: 'Email', type: 'Any', title: 'Email', optional: true },
+                    { name: 'Telephone', type: 'Any', title: 'Telephone', optional: true },
+                    { name: 'Commune', type: 'Any', title: 'Commune', optional: true },
+                    { name: 'Code_Postal', type: 'Any', title: 'Code Postal', optional: true },
+                    { name: 'Adresse', type: 'Any', title: 'Adresse', optional: true },
+                    { name: 'Departement', type: 'Any', title: 'Departement', optional: true },
+                    { name: 'Latitude', type: 'Any', title: 'Latitude', optional: true },
+                    { name: 'Longitude', type: 'Any', title: 'Longitude', optional: true },
+                    { name: 'Campaign', type: 'Any', title: 'Campaign', optional: true },
+                    { name: 'A_Ouvert', type: 'Any', title: 'A Ouvert', optional: true },
+                    { name: 'Total_Opens', type: 'Any', title: 'Total Opens', optional: true },
+                    { name: 'Priorite', type: 'Any', title: 'Priorite', optional: true },
+                    { name: 'Statut_Appel', type: 'Any', title: 'Statut Appel', optional: true },
+                    { name: 'Notes', type: 'Any', title: 'Notes', optional: true },
+                    { name: 'Entreprises_Associees', type: 'Any', title: 'Entreprises Associees', optional: true },
+                    { name: 'Interlocuteur', type: 'Any', title: 'Interlocuteur', optional: true },
+                    { name: 'Date_Rappel', type: 'Any', title: 'Date Rappel', optional: true },
+                    { name: 'Tel_Direct', type: 'Any', title: 'Tel Direct', optional: true }
+                ]
+            });
+            
+            grist.onRecords(function(records) {
+                console.log('[CRM-Map] Received records:', records.length);
+                if (!records) return;
+                
+                // Map column names if provided
+                allRecords = records.map((row, idx) => {
+                    const mapped = { id: idx };
+                    for (const key in columnMapping) {
+                        mapped[key] = row[columnMapping[key]];
+                    }
+                    return mapped;
+                });
+                
+                if (map === null) {
+                    initMap();
+                }
+                
+                updateMarkerVisibility();
+                updatePriorityCard();
+            });
+            
+            grist.onRecord(function(record, details) {
+                console.log('[CRM-Map] Selected record:', record);
+                if (!record || !record.Latitude || !record.Longitude) return;
+                
+                // Find and select the marker
+                for (const id in schoolMarkers) {
+                    const marker = schoolMarkers[id];
+                    if (marker.schoolData.Nom_Ecole === record.Nom_Ecole) {
+                        selectMarker(marker);
+                        showSchoolPopup(marker);
+                        map.setView([record.Latitude, record.Longitude], 14);
+                        return;
+                    }
+                }
+            });
+        }
+        
+        // ============================================================================
+        // INITIALIZATION
+        // ============================================================================
+        if (typeof grist !== 'undefined') {
+            setupGristIntegration();
+        } else if (typeof DEMO_DATA !== 'undefined') {
+            console.log('[CRM-Map] Running in demo mode');
+            allRecords = DEMO_DATA;
+            initMap();
+            updateMarkerVisibility();
+            updatePriorityCard();
+        } else {
+            console.log('[CRM-Map] Waiting for Grist or demo data...');
+        }
+    </script>
+</body>
+</html>
