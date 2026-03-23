@@ -26,6 +26,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#f0f0f0;color:#1919
 .fbtn.active-dept-67{background:#ea580c;color:#fff;border-color:#ea580c}
 .fbtn.active-dept-68{background:#e11d48;color:#fff;border-color:#e11d48}
 .fbtn.active-dept-88{background:#7c3aed;color:#fff;border-color:#7c3aed}
+.fbtn.active-extra{background:#555;color:#fff;border-color:#555}
 .sep{width:1px;height:20px;background:#e5e5e5;margin:0 2px}
 #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
 .leaflet-container{background:#f2efe9;font-family:'Inter',sans-serif}
@@ -161,6 +162,10 @@ path.leaflet-interactive:focus{outline:none !important}
       <button class="fbtn" data-group="status" data-val="a_appeler" onclick="toggleFilter(this)">A appeler</button>
       <button class="fbtn" data-group="status" data-val="a_rappeler" onclick="toggleFilter(this)">A rappeler</button>
       <button class="fbtn" data-group="status" data-val="in_process" onclick="toggleFilter(this)">In process</button>
+      <button class="fbtn" data-group="status" data-val="interesse" onclick="toggleFilter(this)">Interesse</button>
+      <div class="sep"></div>
+      <span class="filter-label">Extra</span>
+      <button class="fbtn" data-group="extra" data-val="has_notes" onclick="toggleFilter(this)">Avec notes</button>
       <div class="search-wrap">
         <input type="text" class="search-input" id="search-input" placeholder="Rechercher une ecole ou ville..." autocomplete="off">
         <div class="search-results" id="search-results"></div>
@@ -207,7 +212,7 @@ var STATUTS = ['A appeler','A rappeler','In process','Interesse','Refus'];
 var map, clusterGroup, geoLayer, gristTableReady = false;
 var allRecords = [], markers = {}, selectedId = null;
 var skippedIds = new Set(), currentNextCall = null;
-var filters = {opens:null, status:null, dept:null};
+var filters = {opens:new Set(), status:new Set(), dept:new Set(), extra:new Set()};
 var saveTimers = {};
 
 function canWrite() { return typeof grist !== 'undefined' && gristTableReady; }
@@ -230,15 +235,15 @@ function updateLocalRecord(rowId, field, value) {
 }
 
 function toggleFilter(btn) {
-  var group = btn.dataset.group, val = btn.dataset.val, wasActive = false;
-  document.querySelectorAll('.fbtn[data-group="'+group+'"]').forEach(function(b){
-    var cls = Array.from(b.classList).find(function(c){return c.startsWith('active-')});
-    if(cls) { b.classList.remove(cls); if(b === btn) wasActive = true; }
-  });
-  if (!wasActive) {
-    btn.classList.add(group === 'dept' ? 'active-dept-'+val : 'active-'+group);
-    filters[group] = val;
-  } else { filters[group] = null; }
+  var group = btn.dataset.group, val = btn.dataset.val;
+  var activeClass = group === 'dept' ? 'active-dept-'+val : 'active-'+group;
+  if (btn.classList.contains(activeClass)) {
+    btn.classList.remove(activeClass);
+    filters[group].delete(val);
+  } else {
+    btn.classList.add(activeClass);
+    filters[group].add(val);
+  }
   applyFilters();
 }
 
@@ -246,14 +251,28 @@ function getFiltered(records) {
   return records.filter(function(r) {
     var opens = parseInt(r.Total_Opens) || 0;
     var dept = String(r.Departement || '');
-    var statut = String(r.Statut_Appel || '');
-    if (filters.opens === '1' && opens !== 1) return false;
-    if (filters.opens === '2' && opens !== 2) return false;
-    if (filters.opens === '3' && opens < 3) return false;
-    if (filters.status === 'a_appeler' && statut !== 'A appeler') return false;
-    if (filters.status === 'a_rappeler' && statut !== 'A rappeler') return false;
-    if (filters.status === 'in_process' && statut !== 'In process') return false;
-    if (filters.dept && dept !== filters.dept) return false;
+    var statut = String(r.Statut_Appel || '').toLowerCase().replace(/ /g,'_');
+    var notes = String(r.Notes || '');
+    // Opens: OR logic within group
+    if (filters.opens.size > 0) {
+      var matchOpens = false;
+      if (filters.opens.has('1') && opens === 1) matchOpens = true;
+      if (filters.opens.has('2') && opens === 2) matchOpens = true;
+      if (filters.opens.has('3') && opens >= 3) matchOpens = true;
+      if (!matchOpens) return false;
+    }
+    // Status: OR logic within group
+    if (filters.status.size > 0) {
+      if (!filters.status.has(statut)) return false;
+    }
+    // Dept: OR logic within group
+    if (filters.dept.size > 0) {
+      if (!filters.dept.has(dept)) return false;
+    }
+    // Extra filters
+    if (filters.extra.size > 0) {
+      if (filters.extra.has('has_notes') && notes.trim() === '') return false;
+    }
     return true;
   });
 }
@@ -341,9 +360,14 @@ function zoomToDept(e) {
   map.fitBounds(e.target.getBounds(), {padding:[30,30]});
 }
 
-function makeIcon(dept, selected) {
+var STATUT_COLORS = {
+  'A appeler':'#4EA0F0', 'A rappeler':'#F0A04E', 'In process':'#F0D84E',
+  'Interesse':'#4EF07E', 'Refus':'#ccc', 'Exclu':'#777', 'Bounce':'#F04E4E'
+};
+
+function makeIcon(statut, selected) {
   var sz = selected ? 16 : 13;
-  var color = MKCOLORS[String(dept)] || '#888';
+  var color = STATUT_COLORS[String(statut)] || '#888';
   var ring = selected ? 'box-shadow:0 0 0 3px #fff,0 0 0 5px '+color+';' : '';
   return L.divIcon({
     className:'',
@@ -505,9 +529,16 @@ function renderMarkers(records) {
     var lat = parseFloat(r.Latitude), lng = parseFloat(r.Longitude);
     if (isNaN(lat)||isNaN(lng)) return;
     var dept = String(r.Departement||'');
-    var mk = L.marker([lat,lng], {icon:makeIcon(dept, r.id===selectedId)});
+    var statut = String(r.Statut_Appel||'');
+    var mk = L.marker([lat,lng], {icon:makeIcon(statut, r.id===selectedId)});
     mk.bindPopup(makePopup(r), {maxWidth:340, minWidth:290});
-    mk.bindTooltip(String(r.Commune||''), {className:'city-tip', direction:'top', offset:[0,-8]});
+    var tipText = String(r.Commune||'');
+    var tipNotes = String(r.Notes||'').trim();
+    if (tipNotes) {
+      var preview = tipNotes.length > 40 ? tipNotes.substring(0,40)+'...' : tipNotes;
+      tipText += '<br><span style="font-size:10px;color:#999;font-style:italic">'+preview.replace(/</g,'&lt;')+'</span>';
+    }
+    mk.bindTooltip(tipText, {className:'city-tip', direction:'top', offset:[0,-8]});
     mk.recordId = r.id;
     mk.on('click', function(){
       selectedId = r.id;
@@ -705,7 +736,7 @@ function selectSearchResult(id) {
     clusterGroup.zoomToShowLayer(mk, function() {
       mk.openPopup();
       selectedId = id;
-      mk.setIcon(makeIcon(String(rec.Departement||''), true));
+      mk.setIcon(makeIcon(String(rec.Statut_Appel||''), true));
     });
   }
   if (typeof grist !== 'undefined' && gristTableReady) {
@@ -770,7 +801,7 @@ if (typeof grist !== 'undefined') {
     Object.values(markers).forEach(function(m) {
       var r = allRecords.find(function(rec){return rec.id===m.recordId});
       if (!r) return;
-      m.setIcon(makeIcon(r.Departement, m.recordId===selectedId));
+      m.setIcon(makeIcon(String(r.Statut_Appel||''), m.recordId===selectedId));
     });
     if (markers[selectedId]) {
       var m = markers[selectedId];
