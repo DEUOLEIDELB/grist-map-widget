@@ -110,6 +110,20 @@ path.leaflet-interactive:focus{outline:none !important}
 .leaflet-tooltip.city-tip::before{border-top-color:rgba(255,255,255,.95)}
 .save-flash{animation:saveFlash .4s ease}
 @keyframes saveFlash{0%{box-shadow:0 0 0 0 rgba(89,20,208,.4)}50%{box-shadow:0 0 0 4px rgba(89,20,208,.2)}100%{box-shadow:none}}
+.search-wrap{position:relative;flex:1;max-width:280px;margin-left:auto}
+.search-input{width:100%;padding:6px 12px 6px 30px;border:1px solid #e5e5e5;border-radius:8px;font-family:inherit;font-size:12px;color:#333;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='6' cy='6' r='4.5'/%3E%3Cline x1='9.5' y1='9.5' x2='13' y2='13'/%3E%3C/svg%3E") 10px center no-repeat;transition:border-color .15s}
+.search-input:focus{border-color:#5914D0;outline:none}
+.search-input::placeholder{color:#bbb}
+.search-results{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 16px rgba(0,0,0,.1);max-height:240px;overflow-y:auto;z-index:900;display:none}
+.search-results.open{display:block}
+.sr-item{padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s}
+.sr-item:hover,.sr-item.active{background:#f5f3ff}
+.sr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sr-info{display:flex;flex-direction:column;gap:1px;min-width:0}
+.sr-name{font-size:12px;font-weight:600;color:#191919;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr-loc{font-size:10px;color:#999}
+.sr-empty{padding:12px;text-align:center;font-size:11px;color:#bbb}
+.sr-highlight{background:#EDE9FE;border-radius:2px;color:#5914D0;font-weight:700}
 #loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:800;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.95);padding:14px 24px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 #loading.hidden{display:none}
 .spin{width:18px;height:18px;border:2px solid #e5e5e5;border-top-color:#5914D0;border-radius:50%;animation:sp .6s linear infinite}
@@ -129,6 +143,10 @@ path.leaflet-interactive:focus{outline:none !important}
       <button class="fbtn" data-group="status" data-val="a_appeler" onclick="toggleFilter(this)">A appeler</button>
       <button class="fbtn" data-group="status" data-val="a_rappeler" onclick="toggleFilter(this)">A rappeler</button>
       <button class="fbtn" data-group="status" data-val="in_process" onclick="toggleFilter(this)">In process</button>
+      <div class="search-wrap">
+        <input type="text" class="search-input" id="search-input" placeholder="Rechercher une ecole ou ville..." autocomplete="off">
+        <div class="search-results" id="search-results"></div>
+      </div>
     </div>
     <div class="filter-row">
       <span class="filter-label">Departements</span>
@@ -467,6 +485,108 @@ function skipNextCall() {
 function dismissNextCall() {
   document.getElementById('next-call').classList.add('hidden');
 }
+
+// ---- SEARCH ----
+var searchInput = document.getElementById('search-input');
+var searchResults = document.getElementById('search-results');
+var searchActiveIdx = -1;
+
+function normalize(s) { return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
+function highlightMatch(text, query) {
+  var norm = normalize(text);
+  var idx = norm.indexOf(query);
+  if (idx === -1) return text;
+  return text.substring(0,idx) + '<span class="sr-highlight">' + text.substring(idx, idx+query.length) + '</span>' + text.substring(idx+query.length);
+}
+
+function doSearch(q) {
+  var query = normalize(q).trim();
+  if (query.length < 2) { searchResults.classList.remove('open'); return; }
+  var results = [];
+  for (var i = 0; i < allRecords.length; i++) {
+    var r = allRecords[i];
+    var nom = normalize(r.Nom_Ecole);
+    var commune = normalize(r.Commune);
+    var cp = String(r.Code_Postal||'');
+    if (nom.indexOf(query) !== -1 || commune.indexOf(query) !== -1 || cp.indexOf(query) !== -1) {
+      results.push(r);
+      if (results.length >= 8) break;
+    }
+  }
+  searchActiveIdx = -1;
+  if (results.length === 0) {
+    searchResults.innerHTML = '<div class="sr-empty">Aucun resultat pour "' + q + '"</div>';
+  } else {
+    var html = '';
+    for (var j = 0; j < results.length; j++) {
+      var rec = results[j];
+      var dept = String(rec.Departement||'');
+      var dotColor = MKCOLORS[dept] || '#999';
+      html += '<div class="sr-item" data-id="'+rec.id+'" onclick="selectSearchResult('+rec.id+')">';
+      html += '<div class="sr-dot" style="background:'+dotColor+'"></div>';
+      html += '<div class="sr-info">';
+      html += '<div class="sr-name">'+highlightMatch(String(rec.Nom_Ecole||''), query)+'</div>';
+      html += '<div class="sr-loc">'+highlightMatch(String(rec.Commune||''), query)+' ('+dept+')</div>';
+      html += '</div></div>';
+    }
+    searchResults.innerHTML = html;
+  }
+  searchResults.classList.add('open');
+}
+
+function selectSearchResult(id) {
+  searchResults.classList.remove('open');
+  searchInput.value = '';
+  var rec = null;
+  for (var i = 0; i < allRecords.length; i++) {
+    if (allRecords[i].id === id) { rec = allRecords[i]; break; }
+  }
+  if (!rec || !rec.Latitude || !rec.Longitude) return;
+  map.setView([rec.Latitude, rec.Longitude], 14);
+  var mk = markers[id];
+  if (mk) {
+    clusterGroup.zoomToShowLayer(mk, function() {
+      mk.openPopup();
+      selectedId = id;
+      mk.setIcon(makeIcon(String(rec.Departement||''), true));
+    });
+  }
+  if (typeof grist !== 'undefined' && gristTableReady) {
+    grist.setCursorPos({rowId: id}).catch(function(){});
+  }
+}
+
+searchInput.addEventListener('input', function() { doSearch(this.value); });
+
+searchInput.addEventListener('keydown', function(e) {
+  var items = searchResults.querySelectorAll('.sr-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    searchActiveIdx = Math.min(searchActiveIdx + 1, items.length - 1);
+    items.forEach(function(el,i){ el.classList.toggle('active', i === searchActiveIdx); });
+    items[searchActiveIdx].scrollIntoView({block:'nearest'});
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    searchActiveIdx = Math.max(searchActiveIdx - 1, 0);
+    items.forEach(function(el,i){ el.classList.toggle('active', i === searchActiveIdx); });
+    items[searchActiveIdx].scrollIntoView({block:'nearest'});
+  } else if (e.key === 'Enter' && searchActiveIdx >= 0) {
+    e.preventDefault();
+    var id = parseInt(items[searchActiveIdx].getAttribute('data-id'));
+    selectSearchResult(id);
+  } else if (e.key === 'Escape') {
+    searchResults.classList.remove('open');
+    searchInput.blur();
+  }
+});
+
+document.addEventListener('click', function(e) {
+  if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+    searchResults.classList.remove('open');
+  }
+});
 
 function boot(records) {
   console.log('[CRM-Map] boot() with', records.length, 'records');
