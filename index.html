@@ -61,8 +61,8 @@ path.leaflet-interactive:focus{outline:none !important}
 .pc-fv{font-size:12px;color:#555;font-weight:500}
 .pc-fv a{color:#5914D0;text-decoration:none}
 .pc-fv a:hover{text-decoration:underline}
-.pc-notes-area{width:100%;min-height:50px;max-height:100px;padding:8px 10px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit;font-size:11.5px;color:#555;resize:vertical;line-height:1.4;transition:border-color .15s}
-.pc-notes-area:focus{border-color:#5914D0;outline:none}
+.pc-notes-area{width:100%;min-height:50px;max-height:100px;padding:8px 10px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit;font-size:11.5px;color:#555 !important;background:#fff !important;resize:vertical;line-height:1.4;transition:border-color .15s}
+.pc-notes-area:focus{border-color:#5914D0;outline:none;background:#fff !important}
 .pc-status-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
 .pc-status-btn{padding:3px 10px;border-radius:12px;border:1px solid #e5e5e5;background:#fff;font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;color:#777}
 .pc-status-btn:hover{border-color:#bbb}
@@ -97,8 +97,8 @@ path.leaflet-interactive:focus{outline:none !important}
 .nc-row{margin-bottom:6px}
 .nc-phone{color:#5914D0;font-size:12px;font-weight:500;text-decoration:none}
 .nc-phone:hover{text-decoration:underline}
-.nc-notes-area{width:100%;min-height:36px;max-height:60px;padding:6px 8px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit;font-size:11px;color:#555;resize:none;line-height:1.3;transition:border-color .15s;margin-top:6px}
-.nc-notes-area:focus{border-color:#5914D0;outline:none}
+.nc-notes-area{width:100%;min-height:36px;max-height:60px;padding:6px 8px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit;font-size:11px;color:#555 !important;background:#fff !important;resize:none;line-height:1.3;transition:border-color .15s;margin-top:6px}
+.nc-notes-area:focus{border-color:#5914D0;outline:none;background:#fff !important}
 .nc-actions{display:flex;gap:6px;margin-top:8px}
 .nc-btn{flex:1;padding:8px 0;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .nc-btn-call{background:#5914D0;color:#fff}
@@ -124,6 +124,24 @@ path.leaflet-interactive:focus{outline:none !important}
 .sr-loc{font-size:10px;color:#999}
 .sr-empty{padding:12px;text-align:center;font-size:11px;color:#bbb}
 .sr-highlight{background:#EDE9FE;border-radius:2px;color:#5914D0;font-weight:700}
+.rappel-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:1200;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.rappel-overlay.show{opacity:1}
+.rappel-box{background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);padding:20px 24px;width:280px;text-align:center;transform:scale(.9);transition:transform .2s}
+.rappel-overlay.show .rappel-box{transform:scale(1)}
+.rappel-title{font-size:14px;font-weight:700;color:#191919;margin-bottom:4px}
+.rappel-sub{font-size:11px;color:#999;margin-bottom:14px}
+.rappel-quick{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+.rappel-quick-btn{padding:6px 14px;border-radius:8px;border:1px solid #e5e5e5;background:#fff;font-family:inherit;font-size:12px;font-weight:500;color:#555;cursor:pointer;transition:all .15s}
+.rappel-quick-btn:hover{border-color:#F0A04E;color:#F0A04E;background:#FFF8F0}
+.rappel-date-input{width:100%;padding:8px 12px;border:1px solid #e5e5e5;border-radius:8px;font-family:inherit;font-size:13px;color:#333;text-align:center;margin-bottom:12px;background:#fff !important}
+.rappel-date-input:focus{border-color:#5914D0;outline:none}
+.rappel-actions{display:flex;gap:8px}
+.rappel-ok{flex:1;padding:8px 0;border:none;border-radius:8px;background:#F0A04E;color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.rappel-ok:hover{background:#e8923a}
+.rappel-cancel{flex:1;padding:8px 0;border:1px solid #e5e5e5;border-radius:8px;background:#fff;color:#777;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.rappel-cancel:hover{background:#f5f5f5}
+.nc-rappel-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:#FFF3E0;color:#E65100;margin-bottom:6px}
+.nc-rappel-badge svg{width:10px;height:10px}
 #loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:800;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.95);padding:14px 24px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 #loading.hidden{display:none}
 .spin{width:18px;height:18px;border:2px solid #e5e5e5;border-top-color:#5914D0;border-radius:50%;animation:sp .6s linear infinite}
@@ -345,16 +363,93 @@ function statusButtons(currentStatut, rowId, prefix) {
 }
 
 function setStatus(rowId, status, prefix) {
+  if (status === 'A rappeler') {
+    showRappelPicker(rowId, prefix);
+    return;
+  }
+  applyStatus(rowId, status, prefix);
+}
+
+function applyStatus(rowId, status, prefix) {
   updateLocalRecord(rowId, 'Statut_Appel', status);
   saveField(rowId, 'Statut_Appel', status);
-  // Update UI buttons
   document.querySelectorAll('.'+prefix+'-status .pc-status-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.s === status);
   });
-  // Flash save indicator
   var el = document.querySelector('.'+prefix+'-status');
   if (el) { el.classList.remove('save-flash'); void el.offsetWidth; el.classList.add('save-flash'); }
   if (prefix === 'nc') updateNextCall();
+}
+
+function todayStr() {
+  var d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function addDays(n) {
+  var d = new Date(); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dayLabel(dateStr) {
+  var jours = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var d = new Date(dateStr+'T00:00:00');
+  return jours[d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1);
+}
+
+function showRappelPicker(rowId, prefix) {
+  var existing = document.getElementById('rappel-overlay');
+  if (existing) existing.remove();
+  var tomorrow = addDays(1);
+  var in2 = addDays(2);
+  var in3 = addDays(3);
+  var nextWeek = addDays(7);
+  var overlay = document.createElement('div');
+  overlay.className = 'rappel-overlay';
+  overlay.id = 'rappel-overlay';
+  overlay.innerHTML = '<div class="rappel-box">'
+    + '<div class="rappel-title">Rappel prevu quand ?</div>'
+    + '<div class="rappel-sub">Choisir la date de rappel</div>'
+    + '<div class="rappel-quick">'
+    + '<button class="rappel-quick-btn" data-d="'+tomorrow+'">'+dayLabel(tomorrow)+'</button>'
+    + '<button class="rappel-quick-btn" data-d="'+in2+'">'+dayLabel(in2)+'</button>'
+    + '<button class="rappel-quick-btn" data-d="'+in3+'">'+dayLabel(in3)+'</button>'
+    + '<button class="rappel-quick-btn" data-d="'+nextWeek+'">Dans 1 sem.</button>'
+    + '</div>'
+    + '<input type="date" class="rappel-date-input" id="rappel-date" min="'+todayStr()+'" value="'+tomorrow+'">'
+    + '<div class="rappel-actions">'
+    + '<button class="rappel-ok" id="rappel-ok">Confirmer</button>'
+    + '<button class="rappel-cancel" id="rappel-cancel">Annuler</button>'
+    + '</div></div>';
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+  var dateInput = document.getElementById('rappel-date');
+  overlay.querySelectorAll('.rappel-quick-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      dateInput.value = btn.dataset.d;
+      overlay.querySelectorAll('.rappel-quick-btn').forEach(function(b){b.style.borderColor='#e5e5e5';b.style.color='#555';b.style.background='#fff'});
+      btn.style.borderColor='#F0A04E';btn.style.color='#F0A04E';btn.style.background='#FFF8F0';
+    });
+  });
+
+  document.getElementById('rappel-ok').addEventListener('click', function() {
+    var dateVal = dateInput.value;
+    if (!dateVal) return;
+    // Save date as timestamp for Grist Date column (seconds since epoch)
+    var ts = Math.floor(new Date(dateVal+'T12:00:00').getTime()/1000);
+    updateLocalRecord(rowId, 'Date_Rappel', ts);
+    saveField(rowId, 'Date_Rappel', ts);
+    applyStatus(rowId, 'A rappeler', prefix);
+    closeRappelPicker();
+  });
+
+  document.getElementById('rappel-cancel').addEventListener('click', closeRappelPicker);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeRappelPicker(); });
+}
+
+function closeRappelPicker() {
+  var ov = document.getElementById('rappel-overlay');
+  if (!ov) return;
+  ov.classList.remove('show');
+  setTimeout(function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }, 200);
 }
 
 function makePopup(r) {
@@ -423,6 +518,45 @@ function renderMarkers(records) {
   });
 }
 
+function isRappelToday(r) {
+  var dr = r.Date_Rappel;
+  if (!dr) return false;
+  var today = new Date(); today.setHours(0,0,0,0);
+  var todayTs = Math.floor(today.getTime()/1000);
+  var tomorrowTs = todayTs + 86400;
+  // Grist Date = seconds since epoch at noon UTC
+  if (typeof dr === 'number' && dr > 0) return dr >= todayTs && dr < tomorrowTs;
+  // String fallback
+  if (typeof dr === 'string' && dr.length >= 10) {
+    var rappelDate = new Date(dr.substring(0,10)+'T00:00:00');
+    return rappelDate.getTime() === today.getTime();
+  }
+  return false;
+}
+
+function isRappelOverdue(r) {
+  var dr = r.Date_Rappel;
+  if (!dr) return false;
+  var today = new Date(); today.setHours(0,0,0,0);
+  var todayTs = Math.floor(today.getTime()/1000);
+  if (typeof dr === 'number' && dr > 0) return dr < todayTs;
+  if (typeof dr === 'string' && dr.length >= 10) {
+    var rappelDate = new Date(dr.substring(0,10)+'T00:00:00');
+    return rappelDate.getTime() < today.getTime();
+  }
+  return false;
+}
+
+function formatRappelDate(dr) {
+  if (!dr) return '';
+  var d;
+  if (typeof dr === 'number' && dr > 0) d = new Date(dr * 1000);
+  else if (typeof dr === 'string' && dr.length >= 10) d = new Date(dr.substring(0,10)+'T12:00:00');
+  else return '';
+  var jours = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  return jours[d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1);
+}
+
 function getNextCall() {
   var filtered = getFiltered(allRecords);
   var callable = filtered.filter(function(r) {
@@ -430,10 +564,23 @@ function getNextCall() {
     return s!=='Exclu' && s!=='Bounce' && s!=='Refus' && !skippedIds.has(r.id);
   });
   callable.sort(function(a,b) {
+    // 1) Rappels du jour et en retard passent en premier
+    var aRappelNow = isRappelToday(a) || isRappelOverdue(a);
+    var bRappelNow = isRappelToday(b) || isRappelOverdue(b);
+    if (aRappelNow && !bRappelNow) return -1;
+    if (!aRappelNow && bRappelNow) return 1;
+    // 2) Parmi les rappels, les overdue d'abord
+    if (aRappelNow && bRappelNow) {
+      var aOver = isRappelOverdue(a) ? 0 : 1;
+      var bOver = isRappelOverdue(b) ? 0 : 1;
+      if (aOver !== bOver) return aOver - bOver;
+    }
+    // 3) Priorite
     var po = {Haute:0,Moyenne:1,Basse:2};
     var pa = po[a.Priorite]!==undefined?po[a.Priorite]:3;
     var pb = po[b.Priorite]!==undefined?po[b.Priorite]:3;
     if (pa!==pb) return pa-pb;
+    // 4) Opens
     return (parseInt(b.Total_Opens)||0)-(parseInt(a.Total_Opens)||0);
   });
   return callable[0] || null;
@@ -453,7 +600,16 @@ function updateNextCall() {
   var phoneClean = phone.replace(/\s/g,'');
   var notes = String(r.Notes||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   var statut = String(r.Statut_Appel||'');
-  body.innerHTML = '<div class="nc-name" onclick="focusSchool()">'+String(r.Nom_Ecole||'')+'</div>'
+  var rappelBadge = '';
+  if (isRappelToday(r)) {
+    rappelBadge = '<div class="nc-rappel-badge"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a5 5 0 0 0-5 5v3.5l-1 1.5h12l-1-1.5V6.5a5 5 0 0 0-5-5zM6.5 13a1.5 1.5 0 0 0 3 0h-3z"/></svg>Rappel aujourd\'hui</div>';
+  } else if (isRappelOverdue(r)) {
+    rappelBadge = '<div class="nc-rappel-badge" style="background:#FFEBEE;color:#C62828"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a5 5 0 0 0-5 5v3.5l-1 1.5h12l-1-1.5V6.5a5 5 0 0 0-5-5zM6.5 13a1.5 1.5 0 0 0 3 0h-3z"/></svg>Rappel en retard ('+formatRappelDate(r.Date_Rappel)+')</div>';
+  } else if (r.Date_Rappel && String(r.Statut_Appel)==='A rappeler') {
+    rappelBadge = '<div class="nc-rappel-badge" style="background:#F3E8FF;color:#7C3AED"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a5 5 0 0 0-5 5v3.5l-1 1.5h12l-1-1.5V6.5a5 5 0 0 0-5-5zM6.5 13a1.5 1.5 0 0 0 3 0h-3z"/></svg>Rappel '+formatRappelDate(r.Date_Rappel)+'</div>';
+  }
+  body.innerHTML = rappelBadge
+    + '<div class="nc-name" onclick="focusSchool()">'+String(r.Nom_Ecole||'')+'</div>'
     + '<div class="nc-sub">'+String(r.Commune||'')+' / Dep. '+String(r.Departement||'')+'</div>'
     + '<div class="nc-row"><div class="pc-tags" style="margin:0">'
     + (prio?'<span class="tag '+prioTag+'">'+prio+'</span>':'')
