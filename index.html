@@ -143,6 +143,22 @@ path.leaflet-interactive:focus{outline:none !important}
 .rappel-cancel:hover{background:#f5f5f5}
 .nc-rappel-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:#FFF3E0;color:#E65100;margin-bottom:6px}
 .nc-rappel-badge svg{width:10px;height:10px}
+.email-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:1200;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.email-overlay.show{opacity:1}
+.email-box{background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);padding:20px 24px;width:360px;transform:scale(.9);transition:transform .2s}
+.email-overlay.show .email-box{transform:scale(1)}
+.email-box-title{font-size:14px;font-weight:700;color:#191919;margin-bottom:4px}
+.email-box-sub{font-size:11px;color:#999;margin-bottom:14px}
+.email-tpl{padding:12px 14px;border:1px solid #e5e5e5;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.email-tpl:hover{border-color:#5914D0;background:#F9F5FF}
+.email-tpl:last-child{margin-bottom:0}
+.email-tpl-title{font-size:12px;font-weight:600;color:#191919;margin-bottom:2px}
+.email-tpl-desc{font-size:10.5px;color:#999;line-height:1.3}
+.email-tpl-icon{float:left;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-right:10px;margin-top:2px}
+.email-cancel{display:block;width:100%;text-align:center;padding:8px;margin-top:10px;border:none;background:none;color:#999;font-family:inherit;font-size:11px;cursor:pointer}
+.email-cancel:hover{color:#555}
+.email-copied{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#191919;color:#fff;padding:8px 20px;border-radius:8px;font-size:12px;font-weight:600;font-family:inherit;z-index:1300;opacity:0;transition:opacity .3s}
+.email-copied.show{opacity:1}
 #loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:800;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.95);padding:14px 24px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 #loading.hidden{display:none}
 .spin{width:18px;height:18px;border:2px solid #e5e5e5;border-top-color:#5914D0;border-radius:50%;animation:sp .6s linear infinite}
@@ -166,10 +182,6 @@ path.leaflet-interactive:focus{outline:none !important}
       <div class="sep"></div>
       <span class="filter-label">Extra</span>
       <button class="fbtn" data-group="extra" data-val="has_notes" onclick="toggleFilter(this)">Avec notes</button>
-      <div class="search-wrap">
-        <input type="text" class="search-input" id="search-input" placeholder="Rechercher une ecole ou ville..." autocomplete="off">
-        <div class="search-results" id="search-results"></div>
-      </div>
     </div>
     <div class="filter-row">
       <span class="filter-label">Departements</span>
@@ -178,6 +190,10 @@ path.leaflet-interactive:focus{outline:none !important}
       <button class="fbtn" data-group="dept" data-val="67" onclick="toggleFilter(this)">67</button>
       <button class="fbtn" data-group="dept" data-val="68" onclick="toggleFilter(this)">68</button>
       <button class="fbtn" data-group="dept" data-val="88" onclick="toggleFilter(this)">88</button>
+      <div class="search-wrap">
+        <input type="text" class="search-input" id="search-input" placeholder="Rechercher ecole, ville, email..." autocomplete="off">
+        <div class="search-results" id="search-results"></div>
+      </div>
     </div>
   </div>
   <div style="position:relative;flex:1">
@@ -342,9 +358,16 @@ function highlightDept(e) {
   var code = e.target.feature.properties.code;
   var c = DEPT_COLORS[code];
   if (c) {
-    var count = allRecords.filter(function(r){return String(r.Departement)===code}).length;
+    var deptRecords = allRecords.filter(function(r){return String(r.Departement)===code});
+    var count = deptRecords.length;
+    var contacted = deptRecords.filter(function(r){
+      var s = String(r.Statut_Appel||'');
+      var hasNotes = String(r.Notes||'').trim() !== '';
+      var statusChanged = s !== 'A appeler' && s !== '' && s !== 'Exclu' && s !== 'Bounce';
+      return hasNotes || statusChanged;
+    }).length;
     document.getElementById('dept-info-name').textContent = c.name+' ('+code+')';
-    document.getElementById('dept-info-count').textContent = count+' ecoles';
+    document.getElementById('dept-info-count').innerHTML = count+' ecoles &middot; <strong style="color:#5914D0">'+contacted+' contactee'+(contacted>1?'s':'')+'</strong>';
     document.getElementById('dept-info').classList.add('visible');
   }
 }
@@ -364,15 +387,21 @@ var STATUT_COLORS = {
   'A appeler':'#4EA0F0', 'A rappeler':'#F0A04E', 'In process':'#F0D84E',
   'Interesse':'#4EF07E', 'Refus':'#ccc', 'Exclu':'#777', 'Bounce':'#F04E4E'
 };
+var PRIO_COLORS = {'Haute':'#FF6347', 'Moyenne':'#FFA500', 'Basse':'#87CEEB'};
 
-function makeIcon(statut, selected) {
-  var sz = selected ? 16 : 13;
+function makeIcon(statut, prio, selected) {
+  var inner = selected ? 14 : 11;
+  var gap = 2;
+  var ringW = selected ? 3 : 2.5;
+  var total = inner + (gap + ringW) * 2;
   var color = STATUT_COLORS[String(statut)] || '#888';
-  var ring = selected ? 'box-shadow:0 0 0 3px #fff,0 0 0 5px '+color+';' : '';
+  var ringColor = PRIO_COLORS[String(prio)] || '#ccc';
+  var selGlow = selected ? 'filter:drop-shadow(0 0 4px '+color+');' : '';
   return L.divIcon({
     className:'',
-    html:'<div style="width:'+sz+'px;height:'+sz+'px;background:'+color+';border-radius:50%;border:2px solid #fff;'+ring+'transition:all .15s"></div>',
-    iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-sz/2-4]
+    html:'<div style="width:'+total+'px;height:'+total+'px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:'+ringW+'px solid '+ringColor+';'+selGlow+'transition:all .15s">'
+      +'<div style="width:'+inner+'px;height:'+inner+'px;background:'+color+';border-radius:50%"></div></div>',
+    iconSize:[total,total], iconAnchor:[total/2,total/2], popupAnchor:[0,-total/2-4]
   });
 }
 
@@ -476,6 +505,100 @@ function closeRappelPicker() {
   setTimeout(function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }, 200);
 }
 
+// ---- EMAIL TEMPLATES ----
+var EMAIL_TEMPLATES = [
+  {
+    icon:'&#x1F4E9;', iconBg:'#EDE9FE',
+    title:'Renvoi du premier email',
+    desc:'L\'ecole n\'a pas recu ou pas vu votre premier email. Renvoyer la presentation Tech It.',
+    subject:'[Wubo] Presentation du programme Tech It pour votre ecole',
+    body: function(r) {
+      return 'Bonjour,\n\nJe me permets de vous recontacter car je ne suis pas certain(e) que mon precedent email vous soit bien parvenu.\n\nNous proposons le programme Tech It, un atelier educatif phygital destine aux enfants de 8 a 14 ans, qui permet de decouvrir l\'electronique et le numerique de maniere ludique et concrete.\n\nJe serais ravi(e) de vous presenter ce programme plus en detail et de voir comment il pourrait s\'integrer dans votre etablissement.\n\nBien cordialement,\nTaki Bryroua\nWubo - Programme Tech It';
+    }
+  },
+  {
+    icon:'&#x1F4CB;', iconBg:'#D1FAE5',
+    title:'Formulaire de besoins',
+    desc:'L\'ecole est receptive. Envoyer le formulaire pour cerner ses besoins et planifier l\'atelier.',
+    subject:'[Wubo] Tech It - Formulaire pour cerner vos besoins',
+    body: function(r) {
+      return 'Bonjour,\n\nSuite a notre echange, je vous remercie pour l\'interet porte au programme Tech It.\n\nAfin de mieux adapter notre intervention aux besoins de votre etablissement, pourriez-vous nous preciser :\n- Le nombre de classes interessees et les niveaux concernes\n- Les creneaux envisageables pour l\'atelier\n- Les thematiques qui vous interessent le plus (electronique, programmation, objets connectes)\n\nJe reste disponible pour toute question.\n\nBien cordialement,\nTaki Bryroua\nWubo - Programme Tech It';
+    }
+  },
+  {
+    icon:'&#x1F4DE;', iconBg:'#FEF3C7',
+    title:'Relance apres appel sans reponse',
+    desc:'Vous avez tente de joindre l\'ecole sans succes. Envoyer un email de relance.',
+    subject:'[Wubo] Suite a ma tentative d\'appel - Programme Tech It',
+    body: function(r) {
+      return 'Bonjour,\n\nJ\'ai tente de vous joindre par telephone afin de vous presenter le programme Tech It, un atelier educatif innovant qui permet aux enfants de 8 a 14 ans de decouvrir l\'electronique et le numerique.\n\nN\'ayant pas pu vous joindre, je me permets de vous envoyer ce message. Je serais ravi(e) d\'echanger avec vous a un moment qui vous conviendrait.\n\nN\'hesitez pas a me recontacter par email ou telephone.\n\nBien cordialement,\nTaki Bryroua\nWubo - Programme Tech It';
+    }
+  }
+];
+
+function showEmailPicker(rowId) {
+  var rec = allRecords.find(function(r){return r.id===rowId});
+  if (!rec) return;
+  var email = String(rec.Email||'');
+  var existing = document.getElementById('email-overlay');
+  if (existing) existing.remove();
+  var overlay = document.createElement('div');
+  overlay.className = 'email-overlay';
+  overlay.id = 'email-overlay';
+  var html = '<div class="email-box">'
+    + '<div class="email-box-title">Envoyer un email</div>'
+    + '<div class="email-box-sub">'+email+'</div>';
+  EMAIL_TEMPLATES.forEach(function(tpl, idx) {
+    html += '<div class="email-tpl" onclick="selectEmailTemplate('+rowId+','+idx+')">'
+      + '<div class="email-tpl-icon" style="background:'+tpl.iconBg+'">'+tpl.icon+'</div>'
+      + '<div class="email-tpl-title">'+tpl.title+'</div>'
+      + '<div class="email-tpl-desc">'+tpl.desc+'</div>'
+      + '<div style="clear:both"></div></div>';
+  });
+  html += '<button class="email-cancel" onclick="closeEmailPicker()">Annuler</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(function(){ overlay.classList.add('show'); });
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) closeEmailPicker(); });
+}
+
+function selectEmailTemplate(rowId, tplIdx) {
+  var rec = allRecords.find(function(r){return r.id===rowId});
+  if (!rec) return;
+  var tpl = EMAIL_TEMPLATES[tplIdx];
+  var email = String(rec.Email||'');
+  var subject = tpl.subject;
+  var body = tpl.body(rec);
+  // Copy body to clipboard for paste into webmail
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(body).then(function(){
+      showCopiedToast('Corps de l\'email copie !');
+    }).catch(function(){});
+  }
+  // Open mailto as fallback (works even with webmail if handler is set)
+  window.open('mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body));
+  closeEmailPicker();
+}
+
+function showCopiedToast(msg) {
+  var existing = document.getElementById('email-copied-toast');
+  if (existing) existing.remove();
+  var toast = document.createElement('div');
+  toast.className = 'email-copied';
+  toast.id = 'email-copied-toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  requestAnimationFrame(function(){ toast.classList.add('show'); });
+  setTimeout(function(){ toast.classList.remove('show'); setTimeout(function(){ if(toast.parentNode) toast.remove(); },300); }, 2500);
+}
+
+function closeEmailPicker() {
+  var ov = document.getElementById('email-overlay');
+  if (!ov) return;
+  ov.classList.remove('show');
+  setTimeout(function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }, 200);
+}
+
 function makePopup(r) {
   var dept = String(r.Departement||'');
   var opens = parseInt(r.Total_Opens)||0;
@@ -513,7 +636,7 @@ function makePopup(r) {
   if(phone) {
     h += '<div class="pc-foot">';
     h += '<button class="pc-btn pc-btn-call" onclick="window.open(\'tel:'+phoneClean+'\')">Appeler</button>';
-    h += '<button class="pc-btn pc-btn-mail" onclick="window.open(\'mailto:'+email+'\')">Email</button>';
+    h += '<button class="pc-btn pc-btn-mail" onclick="showEmailPicker('+r.id+')">Email</button>';
     h += '</div>';
   }
   h += '</div>';
@@ -530,7 +653,7 @@ function renderMarkers(records) {
     if (isNaN(lat)||isNaN(lng)) return;
     var dept = String(r.Departement||'');
     var statut = String(r.Statut_Appel||'');
-    var mk = L.marker([lat,lng], {icon:makeIcon(statut, r.id===selectedId)});
+    var mk = L.marker([lat,lng], {icon:makeIcon(statut, String(r.Priorite||''), r.id===selectedId)});
     mk.bindPopup(makePopup(r), {maxWidth:340, minWidth:290});
     var tipText = String(r.Commune||'');
     var tipNotes = String(r.Notes||'').trim();
@@ -693,10 +816,12 @@ function doSearch(q) {
   var results = [];
   for (var i = 0; i < allRecords.length; i++) {
     var r = allRecords[i];
-    var nom = normalize(r.Nom_Ecole);
-    var commune = normalize(r.Commune);
-    var cp = String(r.Code_Postal||'');
-    if (nom.indexOf(query) !== -1 || commune.indexOf(query) !== -1 || cp.indexOf(query) !== -1) {
+    var searchable = normalize(
+      String(r.Nom_Ecole||'')+' '+String(r.Commune||'')+' '+String(r.Code_Postal||'')+' '
+      +String(r.Email||'')+' '+String(r.Telephone||'')+' '+String(r.Interlocuteur||'')+' '
+      +String(r.Notes||'')+' '+String(r.Entreprises_Associees||'')
+    );
+    if (searchable.indexOf(query) !== -1) {
       results.push(r);
       if (results.length >= 8) break;
     }
@@ -736,7 +861,7 @@ function selectSearchResult(id) {
     clusterGroup.zoomToShowLayer(mk, function() {
       mk.openPopup();
       selectedId = id;
-      mk.setIcon(makeIcon(String(rec.Statut_Appel||''), true));
+      mk.setIcon(makeIcon(String(rec.Statut_Appel||''), String(rec.Priorite||''), true));
     });
   }
   if (typeof grist !== 'undefined' && gristTableReady) {
@@ -801,7 +926,7 @@ if (typeof grist !== 'undefined') {
     Object.values(markers).forEach(function(m) {
       var r = allRecords.find(function(rec){return rec.id===m.recordId});
       if (!r) return;
-      m.setIcon(makeIcon(String(r.Statut_Appel||''), m.recordId===selectedId));
+      m.setIcon(makeIcon(String(r.Statut_Appel||''), String(r.Priorite||''), m.recordId===selectedId));
     });
     if (markers[selectedId]) {
       var m = markers[selectedId];
