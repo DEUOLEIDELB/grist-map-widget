@@ -18,7 +18,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#FAF5F2;color:#1919
 .filter-bar{background:#fff;padding:10px 16px;border-bottom:1px solid #e5e5e5;box-shadow:0 1px 2px rgba(0,0,0,.05);z-index:500;flex-shrink:0}
 .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
 .filter-row:last-child{margin-bottom:0}
-.filter-label{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.5px;min-width:80px}
+.filter-label{font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.5px}
 .fbtn{padding:5px 14px;border-radius:8px;border:1px solid #ddd;background:#fff;font-family:inherit;font-size:12px;font-weight:500;color:#555;cursor:pointer;transition:all .15s;user-select:none}
 .fbtn:hover{border-color:#bbb;color:#333}
 .fbtn.active-opens{background:#5914D0;color:#fff;border-color:#5914D0}
@@ -28,10 +28,10 @@ body{font-family:'Inter',-apple-system,sans-serif;background:#FAF5F2;color:#1919
 .fbtn.active-dept-67{background:#ea580c;color:#fff;border-color:#ea580c}
 .fbtn.active-dept-68{background:#e11d48;color:#fff;border-color:#e11d48}
 .fbtn.active-dept-88{background:#7c3aed;color:#fff;border-color:#7c3aed}
-.sep{width:1px;height:20px;background:#e5e5e5;margin:0 4px}
+.sep{width:1px;height:20px;background:#e5e5e5;margin:0 2px}
 
 /* ── MAP ── */
-#map{flex:1;z-index:1}
+#map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1}
 .leaflet-container{background:#FAF5F2;font-family:'Inter',sans-serif}
 .leaflet-control-zoom{border:1px solid #ddd !important;border-radius:8px !important;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1) !important}
 .leaflet-control-zoom a{background:#fff !important;color:#555 !important;border-color:#eee !important;width:30px !important;height:30px !important;line-height:30px !important;font-size:15px !important}
@@ -237,6 +237,8 @@ function applyFilters() {
 // MAP INIT
 // ══════════════════════════════════════════════════
 function initMap() {
+  var el = document.getElementById('map');
+  console.log('[CRM-Map] initMap() - container size:', el.offsetWidth, 'x', el.offsetHeight);
   map = L.map('map',{zoomControl:false}).setView([48.5,7.0],8);
 
   L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',{
@@ -413,7 +415,13 @@ function skipNextCall() {
 // GRIST INTEGRATION
 // ══════════════════════════════════════════════════
 function boot(records) {
+  console.log('[CRM-Map] boot() called with',records.length,'records');
   allRecords = records;
+  // Force Leaflet to recalculate container size
+  if(map) {
+    map.invalidateSize();
+    console.log('[CRM-Map] Map container size:', document.getElementById('map').offsetWidth, 'x', document.getElementById('map').offsetHeight);
+  }
   renderMarkers(allRecords);
   updateNextCall();
   document.getElementById('loading').classList.add('hidden');
